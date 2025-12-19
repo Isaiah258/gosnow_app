@@ -7,52 +7,145 @@
 
 // Recording/UI/SessionSummarySheet.swift
 import SwiftUI
-import UIKit
-
-
-
-import SwiftUI
 
 struct SessionSummarySheet: View {
     let summary: SessionSummary
 
-    var body: some View {
-        VStack(spacing: 24) {
-            Text("本次滑行总结").font(.title3).bold()
+    @State private var energyKcal: Double? = nil
+    @State private var hasTriedFetchEnergy: Bool = false
 
-            HStack(spacing: 28) {
-                metricBlock(title: "距离 (km)", value: String(format: "%.1f", summary.distanceKm))
-                metricBlock(title: "平均速度 (km/h)", value: String(format: "%.1f", summary.avgSpeedKmh))
+    private let columns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14)
+    ]
+
+    var body: some View {
+        VStack(spacing: 16) {
+            header
+
+            LazyVGrid(columns: columns, spacing: 14) {
+                MetricCard(title: "距离", value: String(format: "%.1f", summary.distanceKm), unit: "km")
+                MetricCard(title: "用时", value: summary.durationText, unit: nil)
+                MetricCard(title: "最高速度", value: String(format: "%.1f", summary.topSpeedKmh), unit: "km/h")
+
+                // ✅ 能量同级展示（没授权/没数据就显示 –）
+                MetricCard(
+                    title: "能量",
+                    value: energyText,
+                    unit: energyKcal == nil ? nil : "kcal"
+                )
             }
-            HStack(spacing: 28) {
-                metricBlock(title: "最高速度 (km/h)", value: String(format: "%.1f", summary.topSpeedKmh))
-                metricBlock(title: "用时", value: summary.durationText)
-            }
+
             if let drop = summary.elevationDropM {
-                metricBlock(title: "落差 (m)", value: "\(drop)")
-                    .frame(maxWidth: .infinity)
+                WideMetricCard(title: "落差", value: "\(drop)", unit: "m")
             }
+
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .presentationDetents([.fraction(0.42), .medium])
+        .presentationDetents([.fraction(0.48), .medium])
         .presentationDragIndicator(.visible)
         .modifier(PresentationCornerRadiusIfAvailable(24))
         .presentationBackground(.regularMaterial)
+        .task { await loadEnergySilentlyIfPossible() }
     }
 
-    private func metricBlock(title: String, value: String) -> some View {
+    private var header: some View {
         VStack(spacing: 6) {
-            Text(value)
-                .font(.system(size: 42, weight: .semibold))
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-                .monospacedDigit()
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.gray)
+            Text("本次滑行总结")
+                .font(.title3.weight(.semibold))
+            Text(timeRangeText(start: summary.startAt, end: summary.endAt))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .padding(.top, 8)
+    }
+
+    private var energyText: String {
+        if let kcal = energyKcal {
+            return String(format: "%.0f", kcal)
+        }
+        // 已尝试读取但没拿到：仍显示 –（安静策略）
+        return "–"
+    }
+
+    private func loadEnergySilentlyIfPossible() async {
+        guard hasTriedFetchEnergy == false else { return }
+        hasTriedFetchEnergy = true
+
+        // ✅ 不请求授权；只在已授权时读取
+        energyKcal = await HealthEnergyStore.shared.fetchActiveEnergyKcalIfAuthorized(
+            start: summary.startAt,
+            end: summary.endAt
+        )
+    }
+
+    private func timeRangeText(start: Date, end: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日 HH:mm"
+        return "\(f.string(from: start)) - \(f.string(from: end))"
+    }
+}
+
+private struct MetricCard: View {
+    let title: String
+    let value: String
+    let unit: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(.system(size: 34, weight: .semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                if let unit {
+                    Text(unit)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct WideMetricCard: View {
+    let title: String
+    let value: String
+    let unit: String?
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer()
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(.system(size: 28, weight: .semibold))
+                    .monospacedDigit()
+                if let unit {
+                    Text(unit)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -68,12 +161,8 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
 
 
 
-
-
-
-
 /*
- 
+
  import SwiftUI
  import UIKit
 
@@ -197,18 +286,17 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
          .presentationDragIndicator(.visible)
          .modifier(PresentationCornerRadiusIfAvailable(24))
          .presentationBackground(.regularMaterial)
-         
-         
-         
-         
+
+
+
          .buttonStyle(.borderedProminent)
          .controlSize(.large)
          .padding(.top, 8)
 
      }
-     
-     
-     
+
+
+
 
      private func metricBlock(title: String, value: String) -> some View {
          VStack(spacing: 6) {
@@ -237,6 +325,5 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
          }
      }
  }
- 
- 
- */
+
+*/

@@ -7,5 +7,5 @@
 import Foundation
 
 /// 本地会话文件上限（超过后自动删除最旧记录）
-public let MAX_SESSIONS = 200
+public let MAX_SESSIONS = 2000
 
