@@ -9,12 +9,12 @@
 import SwiftUI
 import UIKit
 
-
-
-import SwiftUI
-
 struct SessionSummarySheet: View {
     let summary: SessionSummary
+    @State private var healthMetrics: HealthMetrics? = nil
+    @State private var isLoadingHealth = false
+    @State private var isHealthAuthorized = false
+    @State private var hasCheckedAuthorization = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -32,6 +32,8 @@ struct SessionSummarySheet: View {
                 metricBlock(title: "落差 (m)", value: "\(drop)")
                     .frame(maxWidth: .infinity)
             }
+
+            healthSection
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -39,6 +41,7 @@ struct SessionSummarySheet: View {
         .presentationDragIndicator(.visible)
         .modifier(PresentationCornerRadiusIfAvailable(24))
         .presentationBackground(.regularMaterial)
+        .task { await loadHealthData() }
     }
 
     private func metricBlock(title: String, value: String) -> some View {
@@ -54,6 +57,92 @@ struct SessionSummarySheet: View {
         }
         .frame(maxWidth: .infinity)
     }
+
+    private var healthSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("健康数据")
+                    .font(.headline)
+                if isLoadingHealth {
+                    Spacer()
+                    ProgressView()
+                }
+            }
+
+            Group {
+                if isLoadingHealth {
+                    Text("正在从 Apple 健康加载...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                } else if hasCheckedAuthorization && !isHealthAuthorized {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("未授权读取健康数据")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Button("连接 Apple 健康") {
+                            Task { await loadHealthData() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                } else if let metrics = healthMetrics, (metrics.avgHeartRateBpm != nil || metrics.activeEnergyKcal != nil) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if let hr = metrics.avgHeartRateBpm {
+                            healthMetricRow(title: "平均心率", value: String(format: "%.0f bpm", hr))
+                        }
+                        if let energy = metrics.activeEnergyKcal {
+                            healthMetricRow(title: "活跃能量", value: String(format: "%.0f kcal", energy))
+                        }
+                    }
+                } else {
+                    Text("暂无可用的健康数据")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func healthMetricRow(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.semibold)
+        }
+        .font(.subheadline)
+    }
+
+    private func loadHealthData() async {
+        await MainActor.run {
+            isLoadingHealth = true
+        }
+
+        let authorized = await HealthKitManager.shared.requestAuthorizationIfNeeded()
+        await MainActor.run {
+            self.isHealthAuthorized = authorized
+            self.hasCheckedAuthorization = true
+        }
+
+        guard authorized else {
+            await MainActor.run {
+                self.healthMetrics = nil
+                self.isLoadingHealth = false
+            }
+            return
+        }
+
+        let metrics = await HealthKitManager.shared.fetchMetrics(start: summary.startAt, end: summary.endAt)
+        await MainActor.run {
+            self.healthMetrics = metrics
+            self.isLoadingHealth = false
+        }
+    }
 }
 
 private struct PresentationCornerRadiusIfAvailable: ViewModifier {
@@ -66,14 +155,8 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
     }
 }
 
-
-
-
-
-
-
 /*
- 
+
  import SwiftUI
  import UIKit
 
@@ -197,18 +280,17 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
          .presentationDragIndicator(.visible)
          .modifier(PresentationCornerRadiusIfAvailable(24))
          .presentationBackground(.regularMaterial)
-         
-         
-         
-         
+
+
+
          .buttonStyle(.borderedProminent)
          .controlSize(.large)
          .padding(.top, 8)
 
      }
-     
-     
-     
+
+
+
 
      private func metricBlock(title: String, value: String) -> some View {
          VStack(spacing: 6) {
@@ -237,6 +319,5 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
          }
      }
  }
- 
- 
- */
+
+*/
