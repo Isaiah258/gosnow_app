@@ -9,12 +9,34 @@
 import Foundation
 
 public struct SessionSummary: Identifiable, Sendable {
-    public let id = UUID()
+    public let id: UUID
+    public let startAt: Date
+    public let endAt: Date
     public let distanceKm: Double
     public let avgSpeedKmh: Double
     public let topSpeedKmh: Double
     public let elevationDropM: Int?   // 先占位，后续填海拔逻辑
     public let durationSec: Int
+
+    public init(
+        id: UUID = UUID(),
+        startAt: Date = Date(),
+        endAt: Date = Date(),
+        distanceKm: Double,
+        avgSpeedKmh: Double,
+        topSpeedKmh: Double,
+        elevationDropM: Int? = nil,
+        durationSec: Int
+    ) {
+        self.id = id
+        self.startAt = startAt
+        self.endAt = endAt
+        self.distanceKm = distanceKm
+        self.avgSpeedKmh = avgSpeedKmh
+        self.topSpeedKmh = topSpeedKmh
+        self.elevationDropM = elevationDropM
+        self.durationSec = durationSec
+    }
 }
 
 public extension SessionSummary {

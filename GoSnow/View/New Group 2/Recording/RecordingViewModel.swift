@@ -77,6 +77,9 @@ final class RecordingViewModel: ObservableObject {
         await syncFromRecorder()
 
         let summary = SessionSummary(
+            id: session.id,
+            startAt: session.startAt,
+            endAt: session.endAt,
             distanceKm: session.distanceKm,
             avgSpeedKmh: session.avgSpeedKmh,
             topSpeedKmh: session.topSpeedKmh,
