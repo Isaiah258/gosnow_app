@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 final class JSONLocalStore: LocalStore {
     private let fm = FileManager.default
@@ -47,6 +48,7 @@ extension JSONLocalStore {
         for s in toDelete {
             let url = dirURL.appendingPathComponent("\(s.id.uuidString).json")
             try? FileManager.default.removeItem(at: url)
+            deleteRouteImage(sessionId: s.id)
         }
     }
 }
@@ -83,5 +85,49 @@ extension JSONLocalStore {
         }.value
     }
  
+}
+
+
+
+
+
+extension JSONLocalStore {
+
+    private var routeDirURL: URL {
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("route_images", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private func routeImageURL(sessionId: UUID) -> URL {
+        routeDirURL.appendingPathComponent("\(sessionId.uuidString).jpg")
+    }
+
+    /// 保存路线图（jpg，体积更小）
+    func saveRouteImage(_ image: UIImage, sessionId: UUID, quality: CGFloat = 0.85) throws {
+        let url = routeImageURL(sessionId: sessionId)
+        guard let data = image.jpegData(compressionQuality: quality) else {
+            throw NSError(domain: "RouteImage", code: -1, userInfo: [NSLocalizedDescriptionKey: "jpeg encode failed"])
+        }
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// 读取路线图（没有就返回 nil）
+    func loadRouteImage(sessionId: UUID) -> UIImage? {
+        let url = routeImageURL(sessionId: sessionId)
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return UIImage(data: data)
+    }
+
+    /// 是否存在（可选）
+    //func hasRouteImage(sessionId: UUID) -> Bool {
+      //  FileManager.default.fileExists(atPath: routeImageURL(sessionId: sessionId).path)
+    //}
+
+    /// 删除（可选：以后做清理用）
+    func deleteRouteImage(sessionId: UUID) {
+        try? FileManager.default.removeItem(at: routeImageURL(sessionId: sessionId))
+    }
 }
 

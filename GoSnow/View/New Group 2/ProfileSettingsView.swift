@@ -6,12 +6,16 @@ private enum Branding {
     static let wechatOfficialName = "上雪Gosnow"
     static let wechatQRCodeAsset: String? = nil
 
-    // ✅ TODO: 换成你自己的 App Store App ID（不是 BundleID）
-    // 例如：https://apps.apple.com/app/id6736660034
+    // ✅ 你的 App Store App ID（不是 BundleID）
     static let appStoreID: String = "6736660034"
 
     static var appStoreReviewURL: URL? {
         URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review")
+    }
+
+    // ✅ 分享用：App Store 落地页
+    static var appStoreShareURL: URL? {
+        URL(string: "https://apps.apple.com/app/id\(appStoreID)")
     }
 }
 
@@ -57,6 +61,7 @@ struct ProfileSettingsView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+
                             Spacer()
 
                             if auth.session == nil {
@@ -108,19 +113,15 @@ struct ProfileSettingsView: View {
 
                         Divider().padding(.leading, 56)
 
-                        
-
-                        
-
                         NavigationLink {
                             AboutUsHubView()
                         } label: {
                             SettingsRowModern(icon: "info.circle.fill", tint: .orange, title: "关于我们")
                         }
-                        
+
                         Divider().padding(.leading, 56)
-                        
-                        // ✅ 新增：去评分
+
+                        // ✅ 去评分
                         Button {
                             rateApp()
                         } label: {
@@ -132,8 +133,25 @@ struct ProfileSettingsView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        
-                        
+
+                        // ✅ 分享 App（内置分享面板）
+                        if let url = Branding.appStoreShareURL {
+                            Divider().padding(.leading, 56)
+
+                            ShareLink(
+                                item: url,
+                                subject: Text("上雪 · 滑雪工具与社区"),
+                                message: Text("我在用「上雪」，一起上雪！\n\(url.absoluteString)")
+                            ) {
+                                SettingsRowModern(
+                                    icon: "square.and.arrow.up",
+                                    tint: .green,
+                                    title: "分享 App",
+                                    showChevron: false
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
 
                         if auth.session != nil {
                             Divider().padding(.leading, 56)
@@ -148,9 +166,8 @@ struct ProfileSettingsView: View {
                                     titleColor: .red
                                 )
                             }
+                            .buttonStyle(.plain)
                         }
-                       
-                        
                     }
                     .padding(.horizontal, 20)
 
@@ -162,9 +179,7 @@ struct ProfileSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showLoginSheet) {
             LoginView()
-                .onDisappear {
-                    Task { await AuthManager.shared.bootstrap() }
-                }
+                .onDisappear { Task { await AuthManager.shared.bootstrap() } }
         }
         .task { await AuthManager.shared.bootstrap() }
         .confirmationDialog("确认退出登录", isPresented: $showSignoutConfirm, titleVisibility: .visible) {
@@ -173,20 +188,19 @@ struct ProfileSettingsView: View {
         }
         .alert("错误", isPresented: $showError) {
             Button("好的", role: .cancel) { }
-        } message: { Text(errorMessage ?? "未知错误") }
+        } message: {
+            Text(errorMessage ?? "未知错误")
+        }
     }
 
     // ✅ 去评分：优先弹系统评分弹窗；若不弹则跳 App Store 写评论页
     private func rateApp() {
-        // 1) 先尝试系统评分弹窗（Apple 不保证一定出现）
         if let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first(where: { $0.activationState == .foregroundActive }) {
             SKStoreReviewController.requestReview(in: scene)
         }
 
-        // 2) 再准备一个兜底：跳转 App Store 写评论页（用户手动点星）
-        // （不强制立即跳转，给系统弹窗一个机会；如果你想“必跳”，就把下面直接执行）
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             if let url = Branding.appStoreReviewURL {
                 openURL(url)
@@ -212,6 +226,7 @@ struct ProfileSettingsView: View {
 // 小头像气泡（支持远程 URL/占位）
 struct AvatarBubble: View {
     let urlString: String?
+
     var body: some View {
         Group {
             if let s = urlString, s.hasPrefix("http"), let url = URL(string: s) {
@@ -252,6 +267,7 @@ struct SettingsGroupCardModern<Content: View>: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
+
             RoundedContainer {
                 VStack(spacing: 0) { content }
                     .padding(.vertical, 2)
@@ -266,14 +282,18 @@ struct SettingsRowModern: View {
     let title: String
     var showChevron: Bool = true
     var titleColor: Color = .primary
+
     var body: some View {
         HStack(spacing: 12) {
             IconBadge(system: icon, tint: tint)
                 .frame(width: 36, height: 36)
+
             Text(title)
                 .foregroundStyle(titleColor)
                 .font(.body)
+
             Spacer()
+
             if showChevron {
                 Image(systemName: "chevron.right")
                     .foregroundStyle(.secondary)
@@ -293,7 +313,6 @@ struct QualificationApplyView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // 官方公众号信息
                 RoundedContainer {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 8) {
@@ -338,7 +357,6 @@ struct QualificationApplyView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-                // 远程教练申请说明 + CTA
                 RoundedContainer {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 8) {
@@ -393,7 +411,6 @@ struct QualificationApplyView: View {
     }
 }
 
-// 小步骤行（与首页风格一致）
 struct StepRow: View {
     let index: Int
     let text: String
@@ -413,7 +430,7 @@ struct StepRow: View {
     }
 }
 
-// 预览
 #Preview {
     NavigationStack { ProfileSettingsView().preferredColorScheme(.light) }
 }
+

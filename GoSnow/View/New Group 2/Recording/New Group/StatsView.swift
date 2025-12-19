@@ -2,6 +2,7 @@
 
 import SwiftUI
 import Charts
+import UIKit
 
 struct StatsView: View {
     @EnvironmentObject var sessionsStore: SessionsStore
@@ -24,6 +25,17 @@ struct StatsView: View {
     @State private var seasonMonths: [MonthBucket] = []
     @State private var seasonPageIndex: Int = 0
 
+    // ✅ 历史显示控制
+    @State private var expandHistory: Bool = false
+    //
+    @State private var presentSummary: SessionSummary? = nil
+    @State private var presentRoute: UIImage? = nil
+    @State private var presentSessionId: UUID? = nil
+
+
+    // ✅ 能量读取（静默、只读、无需在此授权）
+    @StateObject private var energyStore = HealthEnergyStore.shared
+
     private var selectedColor: Color {
         switch metric {
         case .duration:  return .orange
@@ -33,137 +45,315 @@ struct StatsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            // 顶部：范围切换
-            Picker("", selection: $scope) {
-                Text("周").tag(StatsScope.week)
-                Text("月").tag(StatsScope.month)
-                Text("雪季").tag(StatsScope.season)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 16) {
 
-            // 图表 / 热力图
-            Group {
-                if metric == .snowDays {
-                    if scope == .season {
-                        // 雪季：按月分页 + 横向滑动
-                        SeasonMonthlyPager(
-                            sessions: sessionsStore.sessions,
-                            months: seasonMonths,
-                            selection: $seasonPageIndex
-                        )
-                        .frame(height: 220)
-                        .padding(.horizontal)
-                    } else {
-                        // 周 / 月：整段热力图
-                        HeatmapGrid(
-                            days: heatmapDaysOrdered,
-                            values: heatmapBuckets,
-                            color: .blue
-                        )
-                        .frame(height: 220)
-                        .padding(.horizontal)
-                    }
-                } else {
-                    if series.isEmpty {
-                        VStack(spacing: 8) {
-                            Text("暂无数据").foregroundStyle(.secondary)
-                            Text("开始一次记录试试～").font(.footnote).foregroundStyle(.secondary)
+                // 顶部：范围切换
+                Picker("", selection: $scope) {
+                    Text("周").tag(StatsScope.week)
+                    Text("月").tag(StatsScope.month)
+                    Text("雪季").tag(StatsScope.season)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
+                // 图表 / 热力图
+                Group {
+                    if metric == .snowDays {
+                        if scope == .season {
+                            SeasonMonthlyPager(
+                                sessions: sessionsStore.sessions,
+                                months: seasonMonths,
+                                selection: $seasonPageIndex
+                            )
+                            .frame(height: 220)
+                            .padding(.horizontal)
+                        } else {
+                            HeatmapGrid(
+                                days: heatmapDaysOrdered,
+                                values: heatmapBuckets,
+                                color: .blue
+                            )
+                            .frame(height: 220)
+                            .padding(.horizontal)
                         }
-                        .frame(height: 200)
                     } else {
-                        Chart(series) { p in
-                            AreaMark(
-                                x: .value("日期", p.date),
-                                y: .value(metric == .duration ? "分钟" : "公里", p.value)
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .foregroundStyle(selectedColor.opacity(0.14))
+                        if series.isEmpty {
+                            VStack(spacing: 8) {
+                                Text("暂无数据").foregroundStyle(.secondary)
+                                Text("开始一次记录试试～").font(.footnote).foregroundStyle(.secondary)
+                            }
+                            .frame(height: 200)
+                        } else {
+                            Chart(series) { p in
+                                AreaMark(
+                                    x: .value("日期", p.date),
+                                    y: .value(metric == .duration ? "分钟" : "公里", p.value)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .foregroundStyle(selectedColor.opacity(0.14))
 
-                            LineMark(
-                                x: .value("日期", p.date),
-                                y: .value(metric == .duration ? "分钟" : "公里", p.value)
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .lineStyle(StrokeStyle(lineWidth: 3, lineJoin: .round))
-                            .foregroundStyle(selectedColor)
+                                LineMark(
+                                    x: .value("日期", p.date),
+                                    y: .value(metric == .duration ? "分钟" : "公里", p.value)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .lineStyle(StrokeStyle(lineWidth: 3, lineJoin: .round))
+                                .foregroundStyle(selectedColor)
 
-                            PointMark(
-                                x: .value("日期", p.date),
-                                y: .value(metric == .duration ? "分钟" : "公里", p.value)
-                            )
-                            .symbol(.circle)
-                            .symbolSize(28)
-                            .foregroundStyle(selectedColor)
+                                PointMark(
+                                    x: .value("日期", p.date),
+                                    y: .value(metric == .duration ? "分钟" : "公里", p.value)
+                                )
+                                .symbol(.circle)
+                                .symbolSize(28)
+                                .foregroundStyle(selectedColor)
+                            }
+                            .applySeasonMonthAxisIfNeeded(scope: scope, interval: currentInterval)
+                            .chartYAxisLabel(metric == .duration ? "分钟" : "公里")
+                            .frame(height: 220)
+                            .padding(.horizontal)
                         }
-                        // 雪季折线的 X 轴仅显示“月份”
-                        .applySeasonMonthAxisIfNeeded(scope: scope, interval: currentInterval)
-                        .chartYAxisLabel(metric == .duration ? "分钟" : "公里")
-                        .frame(height: 220)
-                        .padding(.horizontal)
                     }
                 }
+
+                // 摘要
+                Text("摘要")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+
+                HStack(spacing: 12) {
+                    SummaryCard(
+                        title: "持续时间",
+                        value: timeString(minutes: Double(summary.totalDurationSec) / 60.0),
+                        selected: metric == .duration,
+                        color: .orange
+                    ) { metric = .duration }
+
+                    SummaryCard(
+                        title: "距离",
+                        value: String(format: "%.1f km", summary.totalDistanceKm),
+                        selected: metric == .distance,
+                        color: .green
+                    ) { metric = .distance }
+
+                    SummaryCard(
+                        title: "雪天数",
+                        value: "\(snowDaysCount) 天",
+                        selected: metric == .snowDays,
+                        color: .blue
+                    ) { metric = .snowDays }
+                }
+                .padding(.horizontal)
+
+                HStack {
+                    Text("记录次数").foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(summary.sessionsCount) 次")
+                }
+                .padding(.horizontal)
+                .padding(.top, 4)
+
+                // 历史
+                Text("历史")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+
+                historySection
+                    .padding(.horizontal)
+
             }
-
-            // 摘要卡：持续时间 / 距离 / 雪天数（三选一）
-            HStack(spacing: 12) {
-                SummaryCard(
-                    title: "持续时间",
-                    value: timeString(minutes: Double(summary.totalDurationSec) / 60.0),
-                    selected: metric == .duration,
-                    color: .orange
-                ) { metric = .duration }
-
-                SummaryCard(
-                    title: "距离",
-                    value: String(format: "%.1f km", summary.totalDistanceKm),
-                    selected: metric == .distance,
-                    color: .green
-                ) { metric = .distance }
-
-                SummaryCard(
-                    title: "雪天数",
-                    value: "\(snowDaysCount) 天",
-                    selected: metric == .snowDays,
-                    color: .blue
-                ) { metric = .snowDays }
-            }
-            .padding(.horizontal)
-
-            // 次数
-            HStack {
-                Text("记录次数").foregroundStyle(.secondary)
-                Spacer()
-                Text("\(summary.sessionsCount) 次")
-            }
-            .padding(.horizontal)
-            .padding(.top, 4)
-
-            Spacer(minLength: 12)
+            .padding(.bottom, 24)
         }
         .navigationTitle("活动")
         .navigationBarTitleDisplayMode(.large)
-        // 避免 Array 需要 Equatable：用 onReceive
-        .onReceive(sessionsStore.$sessions) { _ in recomputeAll() }
+
+        .onReceive(sessionsStore.$sessions) { _ in
+            recomputeAll()
+            Task { await prefetchVisibleHistoryEnergy() }
+        }
         .onChange(of: scope)  { _, _ in recomputeAll() }
         .onChange(of: metric) { _, _ in recomputeMetricSwitch() }
         .onChange(of: seasonPageIndex) { _, newIndex in
-            // 切月时，只在“雪季 + 雪天数”下重建该页热力图
             guard scope == .season, metric == .snowDays else { return }
             rebuildSeasonPageHeatmap(page: newIndex)
         }
-        .task { recomputeAll() }
+        .onChange(of: expandHistory) { _, _ in
+            Task { await prefetchVisibleHistoryEnergy() }
+        }
+        .task {
+            recomputeAll()
+            await prefetchVisibleHistoryEnergy()
+            // ✅ 这里不弹授权、不提示用户（你说要放到设置里做）
+        }
+        .fullScreenCover(item: $presentSummary) { summary in
+            SessionSummaryScreen(summary: summary, routeImage: presentRoute) {
+                presentSummary = nil
+                presentRoute = nil
+                presentSessionId = nil
+            }
+        }
+
     }
 
-    // MARK: - 计算
+    // MARK: - 历史区块（本地 sessions + 能量静默补全）
 
-    /// 切范围或数据时：重算月份分页 + 概览 + 折线/热力图
+    private var historySection: some View {
+        VStack(spacing: 12) {
+            if visibleHistorySessions.isEmpty {
+                Text("暂无历史记录")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(visibleHistorySessions, id: \.id) { s in
+                        Button {
+                            openHistorySummary(session: s)
+                        } label: {
+                            historyCard(session: s)
+                        }
+                        .buttonStyle(.plain) // ✅ 保持你原来的卡片样式，不要按钮默认蓝色
+                    }
+                }
+
+                if cappedHistorySessions.count > 5 {
+                    Button {
+                        expandHistory.toggle()
+                    } label: {
+                        Text(expandHistory ? "收起" : "查看更多")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+    private func openHistorySummary(session s: SkiSession) {
+        // ✅ 1) 先立刻打开总结页（route 先空，不等读图）
+        let summary = SessionSummary(
+            id: s.id,                // ✅ 用 session.id
+            startAt: s.startAt,
+            endAt: s.endAt,
+            distanceKm: s.distanceKm,
+            avgSpeedKmh: s.avgSpeedKmh,
+            topSpeedKmh: s.topSpeedKmh,
+            elevationDropM: nil,
+            durationSec: s.durationSec
+        )
+
+        presentSessionId = s.id
+        presentRoute = nil
+        presentSummary = summary
+
+        // ✅ 2) 后台读路线图（失败不影响总结页）
+        Task.detached(priority: .utility) { [sessionId = s.id] in
+            let img = JSONLocalStore().loadRouteImage(sessionId: sessionId)
+            await MainActor.run {
+                // 防止用户连点别的 session，旧任务回来覆盖
+                guard presentSessionId == sessionId else { return }
+                presentRoute = img
+            }
+        }
+    }
+
+
+    private var cappedHistorySessions: [SkiSession] {
+        let sorted = sessionsStore.sessions.sorted { $0.startAt > $1.startAt }
+        return Array(sorted.prefix(15))
+    }
+
+    private var visibleHistorySessions: [SkiSession] {
+        if expandHistory { return cappedHistorySessions }
+        return Array(cappedHistorySessions.prefix(5))
+    }
+
+    private func prefetchVisibleHistoryEnergy() async {
+        // 没授权就直接不做（卡片里显示 –）
+        guard energyStore.isEnergyAuthorized else { return }
+
+        for s in visibleHistorySessions {
+            // 用 session.id 做 cacheKey（假设 SkiSession.id 是 UUID；若不是请改为 String）
+            let key = s.id.uuidString
+            await energyStore.prefetchEnergyIfPossible(sessionId: key, start: s.startAt, end: s.endAt)
+        }
+    }
+
+    private func historyCard(session s: SkiSession, energyKcal: Double? = nil) -> some View {
+        
+        
+        let title = sessionDateTimeText(s.startAt)
+
+        let durationText = sessionDurationText(s.durationSec)
+        let distanceText = s.distanceKm > 0.01 ? String(format: "%.1f km", s.distanceKm) : "– km"
+        let energyText = energyKcal.map { String(format: "%.0f kcal", $0) } ?? "– kcal"
+
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color(.systemGray6))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: "figure.skiing.downhill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .lineLimit(1)
+
+                Text("\(durationText) · \(distanceText) · \(energyText)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.03), radius: 10, y: 6)
+    }
+
+    private func sessionDateTimeText(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日 HH:mm"
+        return f.string(from: d)
+    }
+
+    private func sessionDurationText(_ sec: Int) -> String {
+        let h = sec / 3600
+        let m = (sec % 3600) / 60
+        return h > 0 ? "\(h)小时\(m)分" : "\(m)分钟"
+    }
+
+
+    
+    
+    
+
+    // MARK: - 计算（你原来的逻辑）
+
     private func recomputeAll() {
         let iv = intervalFor(scope: scope, now: Date())
         currentInterval = iv
 
-        // 1) 雪季月份列表
         if scope == .season {
             seasonMonths = makeSeasonMonths()
             seasonPageIndex = min(seasonPageIndex, max(seasonMonths.count - 1, 0))
@@ -172,10 +362,8 @@ struct StatsView: View {
             seasonPageIndex = 0
         }
 
-        // 2) 概览 summary + 折线 series
         recomputeSeriesAndSummary(interval: iv)
 
-        // 3) 热力图
         if metric == .snowDays {
             if scope == .season {
                 rebuildSeasonPageHeatmap(page: seasonPageIndex)
@@ -183,12 +371,10 @@ struct StatsView: View {
                 buildHeatmap(iv: iv, sessions: sessionsStore.sessions.filter { iv.contains($0.startAt) })
             }
         } else {
-            // 非雪天数：不需要热力图，但我们仍然更新 snowDaysCount（摘要展示用）
             buildHeatmap(iv: iv, sessions: sessionsStore.sessions.filter { iv.contains($0.startAt) })
         }
     }
 
-    /// 仅切换指标时的快速响应（避免重复生成月份列表）
     private func recomputeMetricSwitch() {
         let iv = intervalFor(scope: scope, now: Date())
         if metric == .snowDays {
@@ -198,13 +384,11 @@ struct StatsView: View {
                 buildHeatmap(iv: iv, sessions: sessionsStore.sessions.filter { iv.contains($0.startAt) })
             }
         }
-        // 折线图在 computeSeriesAndSummary 里已按 metric 生成，这里不重复算
     }
 
     private func recomputeSeriesAndSummary(interval iv: DateInterval) {
         let inRange = sessionsStore.sessions.filter { iv.contains($0.startAt) }
 
-        // 概览
         let totalDuration = inRange.reduce(0) { $0 + $1.durationSec }
         let totalDistance = inRange.reduce(0.0) { $0 + $1.distanceKm }
         summary = StatsSummary(
@@ -232,12 +416,11 @@ struct StatsView: View {
                     let km = items.reduce(0.0) { $0 + $1.distanceKm }
                     return .init(date: day, value: km)
                 case .snowDays:
-                    return .init(date: day, value: 0) // 雪天数走热力图
+                    return .init(date: day, value: 0)
                 }
             }
 
         case .season:
-            // 折线：按周聚合
             let weekStart = Calendar.current.dateInterval(of: .weekOfYear, for: iv.start)!.start
             var starts: [Date] = []
             var cur = weekStart
@@ -295,12 +478,11 @@ struct StatsView: View {
         }
     }
 
-    /// 构建（整段）热力图 or 统计雪天数（自然日去重）
+    /// 构建（整段）热力图 & 统计雪天数（自然日去重）
     private func buildHeatmap(iv: DateInterval, sessions: [SkiSession]) {
         var buckets: [Date: Int] = [:]
         let cal = Calendar.current
 
-        // 完整日序列（稳定网格）
         var daysOrdered: [Date] = []
         var cur = cal.startOfDay(for: iv.start)
         while cur < iv.end {
@@ -308,7 +490,6 @@ struct StatsView: View {
             cur = cal.date(byAdding: .day, value: 1, to: cur)!
         }
 
-        // 统计：一天内任意会话即“有雪”；强度=分钟（至少1）
         for s in sessions where iv.contains(s.startAt) && s.durationSec > 0 {
             let day = cal.startOfDay(for: s.startAt)
             let weight = max(1, s.durationSec / 60)
@@ -323,13 +504,13 @@ struct StatsView: View {
     /// 雪季月份列表（11,12,1,2,3,4）
     private func makeSeasonMonths(reference: Date = Date()) -> [MonthBucket] {
         let cal = Calendar(identifier: .gregorian)
-        // 赛季区间
         let y = cal.component(.year, from: reference)
         let m = cal.component(.month, from: reference)
+
         let (start, end): (Date, Date) = {
             if m >= 11 {
                 let s = cal.date(from: DateComponents(year: y,     month: 11, day: 1))!
-                let e = cal.date(from: DateComponents(year: y + 1, month: 5,  day: 1))! // 5/1 不含
+                let e = cal.date(from: DateComponents(year: y + 1, month: 5,  day: 1))!
                 return (s, e)
             } else if m <= 4 {
                 let s = cal.date(from: DateComponents(year: y - 1, month: 11, day: 1))!
@@ -348,14 +529,13 @@ struct StatsView: View {
             let comps = cal.dateComponents([.year, .month], from: cur)
             let monthStart = cal.date(from: DateComponents(year: comps.year!, month: comps.month!, day: 1))!
             let nextMonth  = cal.date(byAdding: .month, value: 1, to: monthStart)!
-            let monthEndEx = min(nextMonth, end) // [start, end)
+            let monthEndEx = min(nextMonth, end)
             buckets.append(.init(year: comps.year!, month: comps.month!, start: monthStart, end: monthEndEx))
             cur = nextMonth
         }
         return buckets
     }
 
-    /// 雪季：根据当前页（月）重建热力图数据
     private func rebuildSeasonPageHeatmap(page: Int) {
         guard !seasonMonths.isEmpty else {
             heatmapBuckets = [:]
@@ -446,7 +626,6 @@ private struct HeatmapGrid: View {
                             RoundedRectangle(cornerRadius: 4)
                                 .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5)
                         )
-                        .accessibilityLabel(Text("\(dateLabel(d)): \(v == 0 ? "无" : "有")"))
                 }
             }
         }
@@ -459,11 +638,6 @@ private struct HeatmapGrid: View {
         if value >= 10 { return 0.55 }
         return 0.35
     }
-
-    private func dateLabel(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "M月d日"
-        return f.string(from: d)
-    }
 }
 
 // MARK: - 雪季：月份分页 + 横滑（标题只写“几月”）
@@ -471,8 +645,8 @@ private struct MonthBucket: Identifiable, Hashable {
     var id: String { "\(year)-\(month)" }
     let year: Int
     let month: Int
-    let start: Date   // 含
-    let end: Date     // 不含
+    let start: Date
+    let end: Date
 
     var title: String { "\(month)月" }
 }
@@ -481,9 +655,6 @@ private struct SeasonMonthlyPager: View {
     let sessions: [SkiSession]
     let months: [MonthBucket]
     @Binding var selection: Int
-
-    private let onColor = Color.blue
-    private let offColor = Color(.systemGray5)
 
     var body: some View {
         if months.isEmpty {
@@ -514,7 +685,6 @@ private struct SeasonMonthlyPager: View {
         let cal = Calendar.current
         let iv = DateInterval(start: month.start, end: month.end)
 
-        // 完整日序列
         var days: [Date] = []
         var cur = cal.startOfDay(for: month.start)
         while cur < month.end {
@@ -522,7 +692,6 @@ private struct SeasonMonthlyPager: View {
             cur = cal.date(byAdding: .day, value: 1, to: cur)!
         }
 
-        // 统计
         var buckets: [Date: Int] = [:]
         for s in sessions where iv.contains(s.startAt) && s.durationSec > 0 {
             let day = cal.startOfDay(for: s.startAt)
@@ -553,9 +722,3 @@ private extension View {
 
 
 
-/*
- 说明：
- - 这里保留了你外部的 StatsScope / StatsMetric / StatsPoint / StatsSummary / SessionsAggregatorForStatus。
- - 如果 Aggregator 内部也做了季节过滤，不会冲突，因为我们在 StatsView 里已经把 sessions 先按本季裁了。
- - 你的 MAX_SESSIONS 已取消，不影响这里逻辑。
-*/

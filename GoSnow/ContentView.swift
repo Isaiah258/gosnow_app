@@ -86,6 +86,12 @@ struct ContentView: View {
                 }
                 .tag(MainTab.community)
             }
+            .onChange(of: tab) { _, _ in
+                let g = UIImpactFeedbackGenerator(style: .light)
+                g.prepare()
+                g.impactOccurred()
+            }
+
         }
         .environmentObject(userData)
         .preferredColorScheme(.light)

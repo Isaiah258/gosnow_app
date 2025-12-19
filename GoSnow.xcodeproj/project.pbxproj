@@ -126,6 +126,9 @@
 		208EBFD52EF2473500D6C78B /* UpdateBannerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208EBFD42EF2473500D6C78B /* UpdateBannerCard.swift */; };
 		208EBFD72EF2475600D6C78B /* UpdateMockOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208EBFD62EF2475600D6C78B /* UpdateMockOverlay.swift */; };
 		208EBFD92EF28B6200D6C78B /* UpdateBannerCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208EBFD82EF28B6200D6C78B /* UpdateBannerCenter.swift */; };
+		208EBFEB2EF5B74300D6C78B /* HealthEnergyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208EBFEA2EF5B74300D6C78B /* HealthEnergyStore.swift */; };
+		208EC0542F02DC5700D6C78B /* LiveTrackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208EC0532F02DC5700D6C78B /* LiveTrackController.swift */; };
+		208EC0562F079C9400D6C78B /* RouteSnapshotter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208EC0552F079C9400D6C78B /* RouteSnapshotter.swift */; };
 		2091F4C12C8D75C600BD854F /* supabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2091F4C02C8D75C600BD854F /* supabase.swift */; };
 		2091F4CB2C90915E00BD854F /* ResortsList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2091F4CA2C90915E00BD854F /* ResortsList.swift */; };
 		2091F4CD2C92DC2500BD854F /* demo5.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2091F4CC2C92DC2500BD854F /* demo5.swift */; };
@@ -318,6 +321,9 @@
 		208EBFD42EF2473500D6C78B /* UpdateBannerCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateBannerCard.swift; sourceTree = "<group>"; };
 		208EBFD62EF2475600D6C78B /* UpdateMockOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateMockOverlay.swift; sourceTree = "<group>"; };
 		208EBFD82EF28B6200D6C78B /* UpdateBannerCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateBannerCenter.swift; sourceTree = "<group>"; };
+		208EBFEA2EF5B74300D6C78B /* HealthEnergyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthEnergyStore.swift; sourceTree = "<group>"; };
+		208EC0532F02DC5700D6C78B /* LiveTrackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTrackController.swift; sourceTree = "<group>"; };
+		208EC0552F079C9400D6C78B /* RouteSnapshotter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteSnapshotter.swift; sourceTree = "<group>"; };
 		2091F4C02C8D75C600BD854F /* supabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = supabase.swift; sourceTree = "<group>"; };
 		2091F4CA2C90915E00BD854F /* ResortsList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResortsList.swift; sourceTree = "<group>"; };
 		2091F4CC2C92DC2500BD854F /* demo5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = demo5.swift; sourceTree = "<group>"; };
@@ -479,9 +485,6 @@
 				2079120C2CB836BE00DC762D /* ReportSheetView.swift */,
 				2016A85D2C76120B001F428B /* LocationManager.swift */,
 				20A9AF832E483DBF008DEE7E /* Recording */,
-				207912082CB7FC3900DC762D /* WeatherViewModel.swift */,
-				2016A85B2C760EAC001F428B /* MapViewRepresentable.swift */,
-				20DEF7AB2C64B72E00145E35 /* Recents.swift */,
 				20DEF7A92C64B70B00145E35 /* Favorites.swift */,
 			);
 			path = "New Group 2";
@@ -645,6 +648,7 @@
 				20744E112EBC95D0008036DF /* StatsTypes.swift */,
 				20744E132EBC95E0008036DF /* SessionsAggregator.swift */,
 				20744E152EBC9625008036DF /* StatsView.swift */,
+				208EBFEA2EF5B74300D6C78B /* HealthEnergyStore.swift */,
 				20744E1D2EBDD709008036DF /* SnowDaysHeatmapView.swift */,
 			);
 			path = "New Group";
@@ -682,11 +686,15 @@
 		20A9AF832E483DBF008DEE7E /* Recording */ = {
 			isa = PBXGroup;
 			children = (
+				20DEF7AB2C64B72E00145E35 /* Recents.swift */,
+				207912082CB7FC3900DC762D /* WeatherViewModel.swift */,
+				2016A85B2C760EAC001F428B /* MapViewRepresentable.swift */,
+				208EC0532F02DC5700D6C78B /* LiveTrackController.swift */,
+				208EC0552F079C9400D6C78B /* RouteSnapshotter.swift */,
 				20744E102EBC95BD008036DF /* New Group */,
 				20A9AF982E48F22A008DEE7E /* Summary */,
 				20A9AF842E483DD6008DEE7E /* SkiSession.swift */,
 				2037269C2C5FADCF00BC484C /* RecordingView.swift */,
-				20744DF12EB3BB30008036DF /* SessionSummaryScreen.swift */,
 				20A9AF9F2E4A52BC008DEE7E /* SessionsStore.swift */,
 				20A9AF882E483E06008DEE7E /* CoreLocationService.swift */,
 				20A9AF8A2E483E23008DEE7E /* MetricsComputer.swift */,
@@ -706,6 +714,7 @@
 			children = (
 				20A9AF992E48F24D008DEE7E /* SessionSummary.swift */,
 				20A9AF9B2E48F268008DEE7E /* Membership.swift */,
+				20744DF12EB3BB30008036DF /* SessionSummaryScreen.swift */,
 				20A9AF9D2E48F2ED008DEE7E /* SessionSummarySheet.swift */,
 			);
 			path = Summary;
@@ -1045,6 +1054,7 @@
 				20A9AFA02E4A52BC008DEE7E /* SessionsStore.swift in Sources */,
 				20744DC02EA1DEF1008036DF /* WelcomeAuthIntroView.swift in Sources */,
 				207912192CBE4DAD00DC762D /* CoachDetailView.swift in Sources */,
+				208EC0542F02DC5700D6C78B /* LiveTrackController.swift in Sources */,
 				20744DE42EB04ABC008036DF /* ThreadedCommentsSection.swift in Sources */,
 				20E2CB5E2D193305004E7BD9 /* LostAndFoundCard.swift in Sources */,
 				2016A8932C7E2965001F428B /* PremiumCard3.swift in Sources */,
@@ -1073,6 +1083,7 @@
 				20744E182EBC96B6008036DF /* LocalStore.swift in Sources */,
 				2007D8B92CB028340007ED4D /* CommentsView.swift in Sources */,
 				20A9AF9C2E48F268008DEE7E /* Membership.swift in Sources */,
+				208EC0562F079C9400D6C78B /* RouteSnapshotter.swift in Sources */,
 				2091F4CF2C933E1600BD854F /* tempo.swift in Sources */,
 				20F30E3B2E7BAA0600D360DE /* test.swift in Sources */,
 				20744DDA2EADD59C008036DF /* TwitterGridImages.swift in Sources */,
@@ -1124,6 +1135,7 @@
 				2007D8AF2CAB1C8E0007ED4D /* ZoomableImageView.swift in Sources */,
 				20F30E372E79432300D360DE /* HomeDashboardView.swift in Sources */,
 				20F30E412E80E1C500D360DE /* ProfileSettingsView.swift in Sources */,
+				208EBFEB2EF5B74300D6C78B /* HealthEnergyStore.swift in Sources */,
 				20B214102C3D2D1000EAEA4F /* FeedView.swift in Sources */,
 				2007D8B12CAC63170007ED4D /* Sheet2View.swift in Sources */,
 				204D7E202C21A6D800465F0C /* WeatherSummaryView.swift in Sources */,
@@ -1346,6 +1358,8 @@
 				INFOPLIST_FILE = GoSnow/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "上雪";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于在滑行总结中读取心率与能量";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将滑行数据写入 Apple 健康";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "为了在你锁屏时仍然继续记录滑行数据，请允许“始终”访问定位。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "请求你的位置以使用滑雪记录功能";
@@ -1385,6 +1399,8 @@
 				INFOPLIST_FILE = GoSnow/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "上雪";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "用于在滑行总结中读取心率与能量";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "用于将滑行数据写入 Apple 健康";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "为了在你锁屏时仍然继续记录滑行数据，请允许“始终”访问定位。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "请求你的位置以使用滑雪记录功能";

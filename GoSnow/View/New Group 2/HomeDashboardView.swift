@@ -7,7 +7,7 @@
 
 import SwiftUI
 import CoreLocation
-
+import UIKit
 import Foundation
 
 @MainActor
@@ -637,6 +637,11 @@ private struct HomeTopBar: View {
                     .overlay(Circle().stroke(.primary.opacity(0.12), lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            )
         }
     }
 }
