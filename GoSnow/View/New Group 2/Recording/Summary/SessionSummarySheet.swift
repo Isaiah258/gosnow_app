@@ -7,141 +7,145 @@
 
 // Recording/UI/SessionSummarySheet.swift
 import SwiftUI
-import UIKit
 
 struct SessionSummarySheet: View {
     let summary: SessionSummary
-    @State private var healthMetrics: HealthMetrics? = nil
-    @State private var isLoadingHealth = false
-    @State private var isHealthAuthorized = false
-    @State private var hasCheckedAuthorization = false
+
+    @State private var energyKcal: Double? = nil
+    @State private var hasTriedFetchEnergy: Bool = false
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14)
+    ]
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("本次滑行总结").font(.title3).bold()
+        VStack(spacing: 16) {
+            header
 
-            HStack(spacing: 28) {
-                metricBlock(title: "距离 (km)", value: String(format: "%.1f", summary.distanceKm))
-                metricBlock(title: "平均速度 (km/h)", value: String(format: "%.1f", summary.avgSpeedKmh))
+            LazyVGrid(columns: columns, spacing: 14) {
+                MetricCard(title: "距离", value: String(format: "%.1f", summary.distanceKm), unit: "km")
+                MetricCard(title: "用时", value: summary.durationText, unit: nil)
+                MetricCard(title: "最高速度", value: String(format: "%.1f", summary.topSpeedKmh), unit: "km/h")
+
+                // ✅ 能量同级展示（没授权/没数据就显示 –）
+                MetricCard(
+                    title: "能量",
+                    value: energyText,
+                    unit: energyKcal == nil ? nil : "kcal"
+                )
             }
-            HStack(spacing: 28) {
-                metricBlock(title: "最高速度 (km/h)", value: String(format: "%.1f", summary.topSpeedKmh))
-                metricBlock(title: "用时", value: summary.durationText)
-            }
+
             if let drop = summary.elevationDropM {
-                metricBlock(title: "落差 (m)", value: "\(drop)")
-                    .frame(maxWidth: .infinity)
+                WideMetricCard(title: "落差", value: "\(drop)", unit: "m")
             }
 
-            healthSection
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
-        .presentationDetents([.fraction(0.42), .medium])
+        .presentationDetents([.fraction(0.48), .medium])
         .presentationDragIndicator(.visible)
         .modifier(PresentationCornerRadiusIfAvailable(24))
         .presentationBackground(.regularMaterial)
-        .task { await loadHealthData() }
+        .task { await loadEnergySilentlyIfPossible() }
     }
 
-    private func metricBlock(title: String, value: String) -> some View {
+    private var header: some View {
         VStack(spacing: 6) {
-            Text(value)
-                .font(.system(size: 42, weight: .semibold))
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-                .monospacedDigit()
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.gray)
+            Text("本次滑行总结")
+                .font(.title3.weight(.semibold))
+            Text(timeRangeText(start: summary.startAt, end: summary.endAt))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .padding(.top, 8)
     }
 
-    private var healthSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("健康数据")
-                    .font(.headline)
-                if isLoadingHealth {
-                    Spacer()
-                    ProgressView()
-                }
-            }
+    private var energyText: String {
+        if let kcal = energyKcal {
+            return String(format: "%.0f", kcal)
+        }
+        // 已尝试读取但没拿到：仍显示 –（安静策略）
+        return "–"
+    }
 
-            Group {
-                if isLoadingHealth {
-                    Text("正在从 Apple 健康加载...")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                } else if hasCheckedAuthorization && !isHealthAuthorized {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("未授权读取健康数据")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Button("连接 Apple 健康") {
-                            Task { await loadHealthData() }
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                } else if let metrics = healthMetrics, (metrics.avgHeartRateBpm != nil || metrics.activeEnergyKcal != nil) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let hr = metrics.avgHeartRateBpm {
-                            healthMetricRow(title: "平均心率", value: String(format: "%.0f bpm", hr))
-                        }
-                        if let energy = metrics.activeEnergyKcal {
-                            healthMetricRow(title: "活跃能量", value: String(format: "%.0f kcal", energy))
-                        }
-                    }
-                } else {
-                    Text("暂无可用的健康数据")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+    private func loadEnergySilentlyIfPossible() async {
+        guard hasTriedFetchEnergy == false else { return }
+        hasTriedFetchEnergy = true
+
+        // ✅ 不请求授权；只在已授权时读取
+        energyKcal = await HealthEnergyStore.shared.fetchActiveEnergyKcalIfAuthorized(
+            start: summary.startAt,
+            end: summary.endAt
+        )
+    }
+
+    private func timeRangeText(start: Date, end: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日 HH:mm"
+        return "\(f.string(from: start)) - \(f.string(from: end))"
+    }
+}
+
+private struct MetricCard: View {
+    let title: String
+    let value: String
+    let unit: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(.system(size: 34, weight: .semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                if let unit {
+                    Text(unit)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(Color(.systemGray6))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
+}
 
-    private func healthMetricRow(title: String, value: String) -> some View {
+private struct WideMetricCard: View {
+    let title: String
+    let value: String
+    let unit: String?
+
+    var body: some View {
         HStack {
             Text(title)
-                .foregroundColor(.secondary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             Spacer()
-            Text(value)
-                .fontWeight(.semibold)
-        }
-        .font(.subheadline)
-    }
-
-    private func loadHealthData() async {
-        await MainActor.run {
-            isLoadingHealth = true
-        }
-
-        let authorized = await HealthKitManager.shared.requestAuthorizationIfNeeded()
-        await MainActor.run {
-            self.isHealthAuthorized = authorized
-            self.hasCheckedAuthorization = true
-        }
-
-        guard authorized else {
-            await MainActor.run {
-                self.healthMetrics = nil
-                self.isLoadingHealth = false
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(.system(size: 28, weight: .semibold))
+                    .monospacedDigit()
+                if let unit {
+                    Text(unit)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
-            return
         }
-
-        let metrics = await HealthKitManager.shared.fetchMetrics(start: summary.startAt, end: summary.endAt)
-        await MainActor.run {
-            self.healthMetrics = metrics
-            self.isLoadingHealth = false
-        }
+        .padding(14)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -154,6 +158,8 @@ private struct PresentationCornerRadiusIfAvailable: ViewModifier {
         } else { content }
     }
 }
+
+
 
 /*
 
